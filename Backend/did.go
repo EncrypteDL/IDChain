@@ -1,6 +1,7 @@
 package backend
 
 import (
+	"encoding/json"
 	"fmt"
 	"strings"
 )
@@ -39,7 +40,7 @@ func (e *SyntaxError) Error() string {
 		desc = "reason unkown" //should not happen
 	case e.I >= len(e.S):
 		desc = "end imcompltet"
-	case e.S[e.I] == ':' && string.IndexAny(e.S, ":/?#") >= e.I:
+	case e.S[e.I] == ':' && strings.IndexAny(e.S, ":/?#") >= e.I:
 	default:
 		desc = fmt.Sprintf("illegal %q at byte № %d", e.S[e.I], e.I+1)
 	}
@@ -251,3 +252,84 @@ func (d DID) EqualString(s string) bool {
 	return i >= len(s) // compared all
 }
 
+// Equal returns whether both s1 and s2 conform to the DID syntax, and whether
+// they are equivalent according to the “Normalization and Comparison” rules of
+// RFC 3986, section 6.
+func Equal(s1, s2 string) bool {
+	d1, err := Parse(s1)
+	return err == nil && d1.EqualString(s2)
+}
+
+// String returns either the URL, or the empty string when zero. Any and all
+// colon characters (':') in the method-specific identifier are escaped (with
+// "%3A"). The return is invalid if any of the attributes (Method or SpecID) are
+// invalid.
+func (d DID) String() string {
+	if d.Method == "" && d.SpecID == "" {
+		return ""
+	}
+
+	var escapeN int
+	for i := 0; i < len(d.SpecID); i++ {
+		switch d.SpecID[i] {
+		case '0', '1', '2', '3', '4', '5', '6', '7', '8', '9',
+			'a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i', 'j', 'k', 'l', 'm',
+			'n', 'o', 'p', 'q', 'r', 's', 't', 'u', 'v', 'w', 'x', 'y', 'z',
+			'A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J', 'K', 'L', 'M',
+			'N', 'O', 'P', 'Q', 'R', 'S', 'T', 'U', 'V', 'W', 'X', 'Y', 'Z',
+			'.', '-', '_':
+			continue // valid
+		default:
+			escapeN++
+		}
+	}
+
+	if escapeN == 0 {
+		return prefix + d.Method + ":" + d.SpecID
+	}
+
+	var b strings.Builder
+	b.Grow(len(prefix) + len(d.Method) + 1 + len(d.SpecID) + 2*escapeN)
+	b.WriteString(prefix)
+	b.WriteString(d.Method)
+	b.WriteByte(':')
+
+	for i := 0; i < len(d.SpecID); i++ {
+		switch c := d.SpecID[i]; c {
+		case '0', '1', '2', '3', '4', '5', '6', '7', '8', '9',
+			'a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i', 'j', 'k', 'l', 'm',
+			'n', 'o', 'p', 'q', 'r', 's', 't', 'u', 'v', 'w', 'x', 'y', 'z',
+			'A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J', 'K', 'L', 'M',
+			'N', 'O', 'P', 'Q', 'R', 'S', 'T', 'U', 'V', 'W', 'X', 'Y', 'Z',
+			'.', '-', '_':
+			b.WriteByte(c)
+
+		default:
+			b.WriteByte('%')
+			b.WriteByte(hexTable[c>>4])
+			b.WriteByte(hexTable[c&15])
+		}
+	}
+	return b.String()
+}
+
+// MarshalJSON implements the json.Marshaler interface.
+func (d DID) MarshalJSON() ([]byte, error) {
+	return json.Marshal(d.String())
+}
+
+// UnmarshalJSON implements the json.Unmarshaler interface.
+func (d *DID) UnmarshalJSON(bytes []byte) error {
+	var s string
+	err := json.Unmarshal(bytes, &s)
+	if err != nil {
+		return err
+	}
+
+	p, err := Parse(s)
+	if err != nil {
+		return fmt.Errorf("JSON string content: %w", err)
+	}
+	*d = p // copy
+	return nil
+}
