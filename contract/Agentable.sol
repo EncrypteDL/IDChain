@@ -5,7 +5,7 @@ pragma solidity ^0.8.13;
 contract Agentable{
     function getDeleteAuthMessage(bytes memory did, address agent) public view returns (bytes memory){
         return abi.encodePacked(
-            "I authorize ", addrToString(agent), " to create DID ", did, " in contract with ", addrToString(address(this)), " (", h, ", ", uri, ")");
+            "I authorize ", addrToString(agent), " to create DID ", did, " in contract with ", addrToString(address(this)), " (", "h, ", ", uri", ")");
     }
 
     function getCreateAuthMessage(bytes memory did, bytes32 h, bytes memory uri, address agent) public view returns (bytes memory) {
