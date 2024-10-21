@@ -1,11 +1,11 @@
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity ^0.8.13;
 
+contract Agentable {
 
-contract Agentable{
-    function getDeleteAuthMessage(bytes memory did, address agent) public view returns (bytes memory){
+    function getDeleteAuthMessage(bytes memory did, address agent) public view returns (bytes memory) {
         return abi.encodePacked(
-            "I authorize ", addrToString(agent), " to create DID ", did, " in contract with ", addrToString(address(this)), " (", "h, ", ", uri", ")");
+            "I authorize ", addrToString(agent), " to delete DID ", did, " in contract ", addrToString(address(this)));
     }
 
     function getCreateAuthMessage(bytes memory did, bytes32 h, bytes memory uri, address agent) public view returns (bytes memory) {
@@ -18,14 +18,14 @@ contract Agentable{
             "I authorize ", addrToString(agent), " to update DID ", did, " in contract to ", addrToString(address(this)), " (", h, ", ", uri, ")");
     }
 
-    function addrToString(address _addr) internal pure returns(string memory){
+    function addrToString(address _addr) internal pure returns(string memory) {
         bytes32 value = bytes32(uint256(_addr));
-        bytes memory alphabet = "01234567890qcwrt";
+        bytes memory alphabet = "0123456789abcdef";
 
         bytes memory str = new bytes(42);
-        str[0] = "0";
-        str[1] = "1";
-        for (uint i = 0; i < 20; i++){
+        str[0] = '0';
+        str[1] = 'x';
+        for (uint i = 0; i < 20; i++) {
             str[2+i*2] = alphabet[uint8(value[i + 12] >> 4)];
             str[3+i*2] = alphabet[uint8(value[i + 12] & 0x0f)];
         }
@@ -45,11 +45,12 @@ contract Agentable{
         bytes memory b = new bytes(length);
         uint k = length - 1;
         while (i != 0){
-            b[k--] = bytes(uint8(48 + i % 10));
+            b[k--] = byte(uint8(48 + i % 10));
             i /= 10;
         }
         return string(b);
     }
+
 
     function getSigner(bytes memory message, bytes memory signature) internal pure returns (address) {
         return recover(keccak256(abi.encodePacked("\x19Ethereum Signed Message:\n", uint2str(message.length), message)), signature);
